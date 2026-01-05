@@ -2,11 +2,17 @@ package category
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"go-ecommerce/internal/shared/errors"
 )
+
+// ProductChecker interface for checking product existence
+type ProductChecker interface {
+	HasProductsWithCategory(ctx context.Context, categoryID uint) (bool, error)
+}
 
 // generateSlug creates a URL-friendly slug from name
 func generateSlug(name string) string {
@@ -32,12 +38,13 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo           Repository
+	productChecker ProductChecker
 }
 
 // NewService creates a new category service
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, productChecker ProductChecker) Service {
+	return &service{repo: repo, productChecker: productChecker}
 }
 
 func (s *service) Create(ctx context.Context, req CreateCategoryRequest) (*CategoryResponse, error) {
@@ -102,6 +109,17 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return errors.ErrRecordNotFound
+	}
+
+	// Check if any products use this category
+	if s.productChecker != nil {
+		hasProducts, err := s.productChecker.HasProductsWithCategory(ctx, id)
+		if err != nil {
+			return err
+		}
+		if hasProducts {
+			return fmt.Errorf("cannot delete category: products are using this category")
+		}
 	}
 
 	return s.repo.Delete(ctx, id)

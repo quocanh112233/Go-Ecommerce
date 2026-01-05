@@ -8,6 +8,7 @@ import (
 	"go-ecommerce/internal/database"
 	"go-ecommerce/internal/modules/brand"
 	"go-ecommerce/internal/modules/category"
+	"go-ecommerce/internal/modules/product"
 	"go-ecommerce/internal/modules/user"
 	"go-ecommerce/pkg/cloudinary"
 	"go-ecommerce/pkg/logger"
@@ -47,6 +48,9 @@ func main() {
 		&user.Session{},
 		&category.Category{},
 		&brand.Brand{},
+		&product.Product{},
+		&product.ProductVariant{},
+		&product.ProductImage{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
@@ -66,16 +70,28 @@ func main() {
 
 	// Initialize Category Module
 	categoryRepo := category.NewRepository(db)
-	categoryService := category.NewService(categoryRepo)
-	categoryHandler := category.NewHandler(categoryService)
 
 	// Initialize Brand Module
 	brandRepo := brand.NewRepository(db)
-	brandService := brand.NewService(brandRepo, cloudinaryClient)
+
+	// Initialize Product Module (needed for checkers)
+	productRepo := product.NewRepository(db)
+	productChecker := product.NewProductChecker(db)
+
+	// Now initialize services with product checker
+	categoryService := category.NewService(categoryRepo, productChecker)
+	categoryHandler := category.NewHandler(categoryService)
+
+	brandService := brand.NewService(brandRepo, cloudinaryClient, productChecker)
 	brandHandler := brand.NewHandler(brandService)
 
+	productService := product.NewService(productRepo, cloudinaryClient)
+	categoryAdapter := product.NewCategoryRepoAdapter(categoryRepo)
+	brandAdapter := product.NewBrandRepoAdapter(brandRepo)
+	productHandler := product.NewHandler(productService, categoryAdapter, brandAdapter)
+
 	// Setup Router
-	router := app.SetupRouter(cfg, zapLogger, userHandler, categoryHandler, brandHandler)
+	router := app.SetupRouter(cfg, zapLogger, userHandler, categoryHandler, brandHandler, productHandler)
 
 	// Start Server
 	log.Println("Server is starting on :8080...")

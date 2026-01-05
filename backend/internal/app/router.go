@@ -5,13 +5,14 @@ import (
 	"go-ecommerce/internal/middleware"
 	"go-ecommerce/internal/modules/brand"
 	"go-ecommerce/internal/modules/category"
+	"go-ecommerce/internal/modules/product"
 	"go-ecommerce/internal/modules/user"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-func SetupRouter(cfg *config.Config, logger *zap.Logger, userHandler *user.Handler, categoryHandler *category.Handler, brandHandler *brand.Handler) *gin.Engine {
+func SetupRouter(cfg *config.Config, logger *zap.Logger, userHandler *user.Handler, categoryHandler *category.Handler, brandHandler *brand.Handler, productHandler *product.Handler) *gin.Engine {
 	r := gin.Default()
 
 	// 1. Global Middlewares
@@ -55,6 +56,13 @@ func SetupRouter(cfg *config.Config, logger *zap.Logger, userHandler *user.Handl
 				admin.GET("/brands/:id", brandHandler.GetByID)
 				admin.PUT("/brands/:id", brandHandler.Update)
 				admin.DELETE("/brands/:id", brandHandler.Delete)
+
+				// Product CRUD
+				admin.POST("/products", productHandler.Create)
+				admin.GET("/products", productHandler.GetAll)
+				admin.GET("/products/:id", productHandler.GetByID)
+				admin.PUT("/products/:id", productHandler.Update)
+				admin.DELETE("/products/:id", productHandler.Delete)
 			}
 		}
 	}

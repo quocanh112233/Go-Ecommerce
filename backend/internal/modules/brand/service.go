@@ -2,6 +2,7 @@ package brand
 
 import (
 	"context"
+	"fmt"
 	"mime/multipart"
 	"regexp"
 	"strings"
@@ -9,6 +10,11 @@ import (
 	"go-ecommerce/internal/shared/errors"
 	"go-ecommerce/pkg/cloudinary"
 )
+
+// ProductChecker interface for checking product existence
+type ProductChecker interface {
+	HasProductsWithBrand(ctx context.Context, brandID uint) (bool, error)
+}
 
 // generateSlug creates a URL-friendly slug from name
 func generateSlug(name string) string {
@@ -31,13 +37,14 @@ type Service interface {
 }
 
 type service struct {
-	repo       Repository
-	cloudinary *cloudinary.Client
+	repo           Repository
+	cloudinary     *cloudinary.Client
+	productChecker ProductChecker
 }
 
 // NewService creates a new brand service
-func NewService(repo Repository, cloudinary *cloudinary.Client) Service {
-	return &service{repo: repo, cloudinary: cloudinary}
+func NewService(repo Repository, cloudinary *cloudinary.Client, productChecker ProductChecker) Service {
+	return &service{repo: repo, cloudinary: cloudinary, productChecker: productChecker}
 }
 
 func (s *service) Create(ctx context.Context, req CreateBrandRequest, logo multipart.File) (*BrandResponse, error) {
@@ -124,6 +131,17 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	brand, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return errors.ErrRecordNotFound
+	}
+
+	// Check if any products use this brand
+	if s.productChecker != nil {
+		hasProducts, err := s.productChecker.HasProductsWithBrand(ctx, id)
+		if err != nil {
+			return err
+		}
+		if hasProducts {
+			return fmt.Errorf("cannot delete brand: products are using this brand")
+		}
 	}
 
 	// Delete logo from Cloudinary
