@@ -5,10 +5,10 @@ import (
 	"log"
 	"time"
 
+	"go-ecommerce/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"quocanh.com/go-ecommerce/internal/config"
 )
 
 func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
